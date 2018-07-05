@@ -29,6 +29,7 @@ char *message = NULL;
 char *ip = NULL;
 int port = 0;
 int request_num = 0;
+char *hk = "hello kitty";
 
 // 本例中线程同步使用读写锁来实现
 struct foo* lock_init()
@@ -76,7 +77,7 @@ int lock_add(struct foo * fp)
 		exit(1);
 	}
 
-	if (fp->f_count++ > request_num)
+	if (fp->f_count++ >= request_num)
 		flag = 0;
 
 	pthread_rwlock_unlock(&fp->f_lock);
@@ -104,7 +105,7 @@ void* pthread_fun(void *ptr)
 	while(lock_add((struct foo *)ptr))
 	{
 		resetPeer(p);
-		cpToPeer(p, message);
+		cpToPeer(p, message, strlen(message));
 
 		sock = socket(PF_INET, SOCK_STREAM, 0);
 		if (sock < 0)
@@ -121,16 +122,39 @@ void* pthread_fun(void *ptr)
 	
 		while (1)
 		{
-			if (0 == writeToPeer(sock, p))
-			{
+			if (writeToPeer(sock, p) > 0)
 				break;
-			}
 		}
+
 		resetPeer(p);
 
-		readFromPeer(sock, p);
+		while (1)
+		{
+			if (readFromPeer(sock, p) > 0)
+				break;
+		}
+
+		// printf("tid: %u, recv :%s\n", (unsigned int)pthread_self(), p->buf);
+
 		
-		printf("tid: %u, recv :%s\n", (unsigned int)pthread_self(), p->buf);
+		resetPeer(p);
+		cpToPeer(p, hk, strlen(hk));
+		while (1)
+		{
+			if (writeToPeer(sock, p) > 0)
+				break;
+		}
+
+		resetPeer(p);
+
+		while (1)
+		{
+			if (readFromPeer(sock, p) > 0)
+				break;
+		}
+		// printf("tid: %u, recv :%s\n", (unsigned int)pthread_self(), p->buf);
+
+
 		close(sock);
 	}
 	

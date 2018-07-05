@@ -6,6 +6,7 @@
 typedef struct peer {
 	char *buf;		// buf首地址
 	int offset;		// 当前偏移量
+	int size;		
 	int length;		// 当前buf总长度
 } peer;
 
@@ -29,6 +30,6 @@ int readFromPeer(int sock, peer *p);
 int writeToPeer(int sock, peer *p);
 
 //  讲str复制到peer
-void cpToPeer(peer *p, char *str);
+void cpToPeer(peer *p, char *str, int size);
 
 #endif

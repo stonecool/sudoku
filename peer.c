@@ -1,33 +1,38 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
+#include <string.h>
 #include "peer.h"
 
 peer* newPeer()
 {
 	struct peer *p = (struct peer *)malloc(sizeof(struct peer));
-	if (NULL == p)
+	char *c = (char *)malloc(DEFAULT_BUFSIZE);
+	if (NULL == p || NULL == c)
 	{
-		perror("newPeer");
-		exit(EXIT_FAILURE);
+		perror("malloc");
+		goto err;
 	}
 
+	memset(c, 0, DEFAULT_BUFSIZE);
+	
+	p->buf = c;
 	p->offset = 0;
+	p->size = 0;
 	p->length = DEFAULT_BUFSIZE;
 
 	// TODO
-	// 为了可直接打印，最后一定留一个0字节
-	p->buf = (char *)malloc(p->length + 1);
-	if (NULL == p->buf)
-	{
-		perror("newPeer");
-		exit(EXIT_FAILURE);
-	}
-
-	memset(p->buf, 0, (size_t)p->length + 1);
+	// 为了可直接打印，最后一定留一个0字节?
+	// 暂时去掉，需要吗，这么处理需要吗？
 
 	return p;
+
+err:
+	if (p)
+	{
+		free(p->buf);
+		free(p);
+	}
 }
 
 
@@ -42,21 +47,22 @@ void reallocPeer(peer *p, int length)
 		p->length = length;
 	}
 
-	p->buf = realloc(p->buf, p->length + 1);
+	p->buf = realloc(p->buf, p->length);
 	if (NULL == p->buf)
 	{
 		perror("reallocPeer");
 		exit(EXIT_FAILURE);
 	}
 
-	memset(p->buf + p->offset, 0, p->offset + 1);
+	memset(p->buf + p->offset - sizeof(int), 0, p->offset);
 }
 
 
 void resetPeer(peer *p)
 {
 	p->offset = 0;
-	memset(p->buf, 0, (size_t)p->length + 1);
+	p->size = 0;
+	memset(p->buf, 0, p->length);
 }
 
 
@@ -69,31 +75,40 @@ void releasePeer(peer *p)
 
 int readFromPeer(int sock, peer* p)
 {
-	int ret = 0, last = 0;
+	int ret = 0;
 
-	while (1)
+	if (p->offset < sizeof(int))
 	{
-		last = p->length - p->offset;
-
-		ret = read(sock, p->buf + p->offset, last);
+		ret = read(sock, (char*)&p->size + p->offset, sizeof(int) - p->offset);
 		if (ret < 0)
 		{
 			perror("read");
 			exit(EXIT_FAILURE);
 		}
-
+		
 		p->offset += ret;
-		if (ret == last)
-		{
-			reallocPeer(p, 0);
-		}
-		else
-		{
-			break;
-		}
+		if (p->offset < sizeof(int))
+			return -1;
 	}
 
-	return 0;
+	if (p->size > p->length)
+		reallocPeer(p, p->size);
+
+	ret = read(sock, p->buf + p->offset - sizeof(int), p->size - p->offset);
+	if (-1 == ret)
+	{
+		perror("read");
+		exit(EXIT_FAILURE);
+	}
+	
+	p->offset += ret;
+
+	if (p->offset == p->size)
+	{
+		return p->offset;
+	}
+	else
+		return -1;
 }
 
 
@@ -101,37 +116,47 @@ int writeToPeer(int sock, peer *p)
 {
 	int ret = 0;
 
-	ret = write(sock, p->buf, p->offset);
-	
-	if (ret < 0)
+	if (p->offset < sizeof(int))
+	{
+		ret = write(sock, (char *)&p->size + p->offset, sizeof(int) - p->offset);
+		if (ret < 0)
+		{
+			perror("write");
+			exit(EXIT_FAILURE);
+		}
+
+		p->offset += ret;
+		if (p->offset < sizeof(int))
+			return 1;
+	}
+
+	ret = write(sock, p->buf + p->offset - sizeof(int), p->size - p->offset);
+	if (-1 == ret)
 	{
 		perror("write");
 		exit(EXIT_FAILURE);
 	}
 
-	p->offset -= ret;
-	if (0 !=  p->offset)
-	{
-		strncpy(p->buf, p->buf + ret, p->offset);
-		return 1;
-	}
+	p->offset += ret;
+
+	if (p->offset == p->size)
+		return p->offset;
 	else
-	{
-		return 0;
-	}
+		return 1;
 }
 
 
-void cpToPeer(peer *p, char *str)
+void cpToPeer(peer *p, char *str, int size)
 {
-	int size = strlen(str);
-	
-	if (size > p->length)
-	{
-		reallocPeer(p, size);
-	}
-	
-	p->offset = size;
-	memset(p->buf + size, 0, p->length - size);
-	strncpy(p->buf, str, size);
+	if (NULL == p || NULL == str || size <= 0)
+		return;
+
+	if (sizeof(int) + size > p->length)
+		reallocPeer(p, sizeof(int) + size);
+
+	memset(p->buf, 0, p->length);
+	memcpy(p->buf, str, size);
+
+	p->offset = 0;
+	p->size = size + sizeof(size);
 }

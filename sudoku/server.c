@@ -17,24 +17,42 @@
 extern int make_socket(uint16_t port);
 void sudoku(char *input);
 
+void sockReadProc(eventLoop* el, int fd, void *clientData);
 // 普通socket的write处理函数
 void sockWriteProc(eventLoop* el, int fd, void *clientData)
 {
-	if (writeToPeer(fd, clientData) == 0)
+	int ret = writeToPeer(fd, clientData);
+
+	if (ret > 0)
 	{
 		delOneEvent(el, fd, EVENT_WRITE);
-		close(fd);
-		releasePeer(clientData);
+		if (ret == 15)
+		{
+			close(fd);
+			releasePeer(clientData);
+		}
+		else
+		{
+			resetPeer((peer *)clientData);	
+			addOneEvent(el, fd, EVENT_WRITE, sockReadProc, clientData);
+		}
 	}
 }
 
 // 普通socket的 read 处理函数
 void sockReadProc(eventLoop* el, int fd, void *clientData)
 {
-	readFromPeer(fd, clientData);
-	sudoku(((peer *)clientData)->buf);	
-	delOneEvent(el, fd, EVENT_READ);
-	addOneEvent(el, fd, EVENT_WRITE, sockWriteProc, clientData);
+	int ret = readFromPeer(fd, clientData);
+
+	if (ret > 0)
+	{	
+		if (ret == 85)
+			sudoku(((peer *)clientData)->buf);
+
+		((peer *)clientData)->offset = 0;
+		delOneEvent(el, fd, EVENT_READ);
+		addOneEvent(el, fd, EVENT_WRITE, sockWriteProc, clientData);
+	}
 }
 
 // 监听端口的read 处理函数
@@ -50,7 +68,7 @@ void listenSockProc(eventLoop *el, int fd, void* clientData)
 		exit(EXIT_FAILURE);
 	}
 	
-	fprintf(stderr, "Server: connect from host: %s, port: %hd\n", inet_ntoa(clientname.sin_addr), ntohs(clientname.sin_port));
+	// fprintf(stderr, "Server: connect from host: %s, port: %hd\n", inet_ntoa(clientname.sin_addr), ntohs(clientname.sin_port));
 	
 	peer *p = newPeer();
 	addOneEvent(el, new, EVENT_READ, sockReadProc, p);
