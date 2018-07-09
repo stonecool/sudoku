@@ -49,14 +49,10 @@ static int apiDelEvent(struct eventLoop *el, int fd, int mask)
 	select_state *ss = el->apiData;
 
 	if (mask & EVENT_READ)
-	{
 		FD_CLR(fd, &ss->read_fd_set_bak);		
-	}
 
 	if (mask & EVENT_WRITE)
-	{
 		FD_CLR(fd, &ss->write_fd_set_bak);
-	}
 
 	return 0;
 }
@@ -78,6 +74,7 @@ static int apiPoll(struct eventLoop *el)
 
 	for (i = 0; i <= el->maxFd; ++i)
 	{
+		mask = 0;
 		fileEvent *fe = &el->files[i];
 
 		if (fe->mask == EVENT_NONE)

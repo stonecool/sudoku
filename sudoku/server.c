@@ -28,7 +28,7 @@ void sockWriteProc(eventLoop* el, int fd, void *clientData)
 		delOneEvent(el, fd, EVENT_WRITE);
 		if (ret == 15)
 		{
-			close(fd);
+//			close(fd);
 			releasePeer(clientData);
 		}
 		else
@@ -68,7 +68,7 @@ void listenSockProc(eventLoop *el, int fd, void* clientData)
 		exit(EXIT_FAILURE);
 	}
 	
-	// fprintf(stderr, "Server: connect from host: %s, port: %hd\n", inet_ntoa(clientname.sin_addr), ntohs(clientname.sin_port));
+	fprintf(stderr, "Server: connect from host: %s, port: %hd\n", inet_ntoa(clientname.sin_addr), ntohs(clientname.sin_port));
 	
 	peer *p = newPeer();
 	addOneEvent(el, new, EVENT_READ, sockReadProc, p);
@@ -77,11 +77,12 @@ void listenSockProc(eventLoop *el, int fd, void* clientData)
 
 int main(int argc, char** argv)
 {
+	printf("%s\n", getEventName());
 	eventLoop *el = createEventLoop(FD_SETSIZE);
 
 	int sock = make_socket(PORT);
 	
-	if (listen(sock, 100) < 0)
+	if (listen(sock, 200) < 0)
 	{
 		perror("listen");
 		exit(EXIT_FAILURE);

@@ -134,9 +134,8 @@ void* pthread_fun(void *ptr)
 				break;
 		}
 
-		// printf("tid: %u, recv :%s\n", (unsigned int)pthread_self(), p->buf);
+		printf("tid: %u, recv :%s\n", pthread_self(), p->buf);
 
-		
 		resetPeer(p);
 		cpToPeer(p, hk, strlen(hk));
 		while (1)
@@ -152,7 +151,7 @@ void* pthread_fun(void *ptr)
 			if (readFromPeer(sock, p) > 0)
 				break;
 		}
-		// printf("tid: %u, recv :%s\n", (unsigned int)pthread_self(), p->buf);
+		printf("tid: %u, recv :%s\n", (unsigned int)pthread_self(), p->buf);
 
 
 		close(sock);
@@ -254,6 +253,10 @@ int main(int argc, char** argv)
 		{
 			fprintf(stderr, "create thread fail. i: %d\n", i);
 			break;
+		}
+		else
+		{
+			printf("create thread: %u sucess\n", thread[i]);
 		}
 	}
 

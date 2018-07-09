@@ -1,9 +1,15 @@
 #include <stdlib.h>
 #include <errno.h>
+#include <string.h>
 #include "event.h"
 
-#include "event_select.c"
-//#include "event_epoll.c"
+#ifdef HAVE_SELECT
+	#include "event_select.c"
+#elif HAVE_POLL
+	#include "event_poll.c"
+#else
+	#include "event_epoll.c"
+#endif
 
 eventLoop *createEventLoop(int size)
 {
@@ -17,18 +23,18 @@ eventLoop *createEventLoop(int size)
 	el->files = (struct fileEvent*)malloc(sizeof(struct fileEvent) * size);
 	el->activeds = (struct fileActivedEvent*)malloc(sizeof(struct fileActivedEvent) * size);
 
-	if (NULL == el->files ||
-		NULL == el->activeds)
-			goto err;
+	memset(el->files, 0, (sizeof(struct fileEvent) * size));
+	memset(el->activeds, 0, (sizeof(struct fileActivedEvent) * size));
+
+	if (NULL == el->files || NULL == el->activeds)
+		goto err;
 
 	el->setSize = size;
 	el->maxFd = -1;
 	apiCreate(el);
 
 	for (i = 0;i < size; ++i)
-	{
 		el->files[i].mask = EVENT_NONE;
-	}
 
 	return el;
 
@@ -66,19 +72,13 @@ int addOneEvent(eventLoop *el, int fd, int mask, fileProc proc, void *clientData
 	fe->data = clientData;
 
 	if (mask & EVENT_READ)
-	{
 		fe->rProc = proc;
-	}
 
 	if (mask & EVENT_WRITE)
-	{
 		fe->wProc = proc;
-	}
 
 	if (fd > el->maxFd)
-	{
 		el->maxFd = fd;
-	}
 
 	return 0;
 }
@@ -99,17 +99,14 @@ int delOneEvent(eventLoop *el, int fd, int mask)
 	fe->mask &= ~(mask);
 
 	
-	if (fd == el->maxFd &&
-		fe->mask == EVENT_NONE)
+	if (fd == el->maxFd && fe->mask == EVENT_NONE)
 	{
 		int j = 0;
 
 		for (j = el->maxFd - 1; j >= 0; --j)
 		{
 			if (el->files[j].mask != EVENT_NONE)
-			{
 				break;
-			}
 		}
 	
 		el->maxFd = j;
@@ -140,14 +137,10 @@ int runOneEventLoop(eventLoop *	el)
 		fileEvent *fe = &el->files[fd];
 
 		if (mask & fe->mask & EVENT_READ)
-		{
 			fe->rProc(el, fd, fe->data);
-		}
 
 		if (mask & fe->mask & EVENT_WRITE)
-		{
 			fe->wProc(el, fd, fe->data);
-		}
 	}
 }
 

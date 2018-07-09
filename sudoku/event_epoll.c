@@ -1,5 +1,7 @@
 #include <sys/epoll.h>
 
+#define NUM 1000
+
 typedef struct epoll_state {
 	int efd;
 	struct epoll_event *ee;
@@ -9,7 +11,7 @@ typedef struct epoll_state {
 static int apiCreate(struct eventLoop *el)
 {
 	epoll_state *es = (epoll_state *)malloc(sizeof(struct epoll_state));
-	struct epoll_event *ee = (struct epoll_event *)malloc(sizeof(struct epoll_event) * 100);
+	struct epoll_event *ee = (struct epoll_event *)malloc(sizeof(struct epoll_event) * NUM);
 
 	if (NULL == es || NULL == ee)
 	{
@@ -81,7 +83,7 @@ static int apiPoll(struct eventLoop *el)
 	int i = 0, ret = 0, num = 0, mask = 0;
 	epoll_state *es = el->apiData;
 	
-	ret = epoll_wait(es->efd, es->ee, 100, -1);
+	ret = epoll_wait(es->efd, es->ee, NUM, -1);
 	if (-1 == ret)
 	{
 		perror("epoll_wait");
