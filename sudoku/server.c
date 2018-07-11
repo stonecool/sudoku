@@ -25,34 +25,32 @@ void sockWriteProc(eventLoop* el, int fd, void *clientData)
 
 	if (ret > 0)
 	{
-		delOneEvent(el, fd, EVENT_WRITE);
-		if (ret == 15)
-		{
-//			close(fd);
-			releasePeer(clientData);
-		}
-		else
-		{
-			resetPeer((peer *)clientData);	
-			addOneEvent(el, fd, EVENT_WRITE, sockReadProc, clientData);
-		}
+		delOneEvent(el, fd, MASK_WRITE);
+		addOneEvent(el, fd, MASK_READ, sockReadProc, clientData);
 	}
 }
 
 // 普通socket的 read 处理函数
 void sockReadProc(eventLoop* el, int fd, void *clientData)
 {
+	resetPeer((peer *)clientData);	
 	int ret = readFromPeer(fd, clientData);
 
+	delOneEvent(el, fd, MASK_READ);
 	if (ret > 0)
 	{	
-		if (ret == 85)
-			sudoku(((peer *)clientData)->buf);
+		sudoku(((peer *)clientData)->buf);
 
 		((peer *)clientData)->offset = 0;
-		delOneEvent(el, fd, EVENT_READ);
-		addOneEvent(el, fd, EVENT_WRITE, sockWriteProc, clientData);
+		addOneEvent(el, fd, MASK_WRITE, sockWriteProc, clientData);
 	}
+
+	//else if (ret == 0)
+	//{
+//		close(fd);
+	//	releasePeer(clientData);
+	//}
+
 }
 
 // 监听端口的read 处理函数
@@ -62,6 +60,7 @@ void listenSockProc(eventLoop *el, int fd, void* clientData)
 	size_t size = sizeof(struct sockaddr);
 	
 	int new = accept(fd, (struct sockaddr*)&clientname, (socklen_t*)&size);
+	printf("accept: %d\n", new);
 	if (new < 0)
 	{
 		perror("accept");
@@ -71,15 +70,12 @@ void listenSockProc(eventLoop *el, int fd, void* clientData)
 	fprintf(stderr, "Server: connect from host: %s, port: %hd\n", inet_ntoa(clientname.sin_addr), ntohs(clientname.sin_port));
 	
 	peer *p = newPeer();
-	addOneEvent(el, new, EVENT_READ, sockReadProc, p);
+	addOneEvent(el, new, MASK_READ, sockReadProc, p);
 }
 
 
 int main(int argc, char** argv)
 {
-	printf("%s\n", getEventName());
-	eventLoop *el = createEventLoop(FD_SETSIZE);
-
 	int sock = make_socket(PORT);
 	
 	if (listen(sock, 200) < 0)
@@ -88,6 +84,11 @@ int main(int argc, char** argv)
 		exit(EXIT_FAILURE);
 	}
 
-	addOneEvent(el, sock, EVENT_READ, listenSockProc, NULL);
+	printf("listen: %d\n", sock);
+	printf("%s, num: %d\n", getEventName(), FD_SETSIZE);
+	eventLoop *el = createEventLoop(FD_SETSIZE);
+	addOneEvent(el, sock, MASK_READ, listenSockProc, NULL);
 	eventMain(el);
+
+	return 0;
 }

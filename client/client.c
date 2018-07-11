@@ -29,7 +29,6 @@ char *message = NULL;
 char *ip = NULL;
 int port = 0;
 int request_num = 0;
-char *hk = "hello kitty";
 
 // 本例中线程同步使用读写锁来实现
 struct foo* lock_init()
@@ -102,24 +101,24 @@ void* pthread_fun(void *ptr)
 	server.sin_port = htons(port);
 	server.sin_addr.s_addr = inet_addr(ip);
 	
+	sock = socket(PF_INET, SOCK_STREAM, 0);
+	if (sock < 0)
+	{
+		perror("socket");
+		exit(EXIT_FAILURE);
+	}
+	
+	if (connect(sock, (const struct sockaddr *)&server, sizeof(server)) < 0)
+	{
+		perror("connect");
+		pthread_exit(NULL);
+	}
+	
 	while(lock_add((struct foo *)ptr))
 	{
 		resetPeer(p);
 		cpToPeer(p, message, strlen(message));
 
-		sock = socket(PF_INET, SOCK_STREAM, 0);
-		if (sock < 0)
-		{
-			perror("socket");
-			exit(EXIT_FAILURE);
-		}
-	
-		if (connect(sock, (const struct sockaddr *)&server, sizeof(server)) < 0)
-		{
-			perror("connect");
-			pthread_exit(NULL);
-		}
-	
 		while (1)
 		{
 			if (writeToPeer(sock, p) > 0)
@@ -135,31 +134,13 @@ void* pthread_fun(void *ptr)
 		}
 
 		printf("tid: %u, recv :%s\n", pthread_self(), p->buf);
-
-		resetPeer(p);
-		cpToPeer(p, hk, strlen(hk));
-		while (1)
-		{
-			if (writeToPeer(sock, p) > 0)
-				break;
-		}
-
-		resetPeer(p);
-
-		while (1)
-		{
-			if (readFromPeer(sock, p) > 0)
-				break;
-		}
-		printf("tid: %u, recv :%s\n", (unsigned int)pthread_self(), p->buf);
-
-
-		close(sock);
 	}
 	
 
 	releasePeer(p);
 
+	close(sock);
+	
 	return ptr;
 }
 
@@ -256,7 +237,7 @@ int main(int argc, char** argv)
 		}
 		else
 		{
-			printf("create thread: %u sucess\n", thread[i]);
+			// printf("create thread: %u sucess\n", thread[i]);
 		}
 	}
 

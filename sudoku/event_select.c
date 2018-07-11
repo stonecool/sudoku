@@ -34,10 +34,10 @@ static int apiAddEvent(struct eventLoop *el, int fd, int mask)
 {
 	select_state* ss = el->apiData;
 	
-	if (mask & EVENT_READ)
+	if (mask & MASK_READ)
 		FD_SET(fd, &ss->read_fd_set_bak);
 	
-	if (mask & EVENT_WRITE)
+	if (mask & MASK_WRITE)
 		FD_SET(fd, &ss->write_fd_set_bak);
 
 	return 0;
@@ -48,10 +48,10 @@ static int apiDelEvent(struct eventLoop *el, int fd, int mask)
 {
 	select_state *ss = el->apiData;
 
-	if (mask & EVENT_READ)
+	if (mask & MASK_READ)
 		FD_CLR(fd, &ss->read_fd_set_bak);		
 
-	if (mask & EVENT_WRITE)
+	if (mask & MASK_WRITE)
 		FD_CLR(fd, &ss->write_fd_set_bak);
 
 	return 0;
@@ -77,16 +77,16 @@ static int apiPoll(struct eventLoop *el)
 		mask = 0;
 		fileEvent *fe = &el->files[i];
 
-		if (fe->mask == EVENT_NONE)
+		if (fe->mask == MASK_NONE)
 			continue;
 
-		if (fe->mask & EVENT_READ && 
+		if (fe->mask & MASK_READ && 
 			FD_ISSET(i, &ss->read_fd_set))
-			mask |= EVENT_READ;
+			mask |= MASK_READ;
 
-		if (fe->mask & EVENT_WRITE &&
+		if (fe->mask & MASK_WRITE &&
 			FD_ISSET(i, &ss->write_fd_set))
-			mask |= EVENT_WRITE;
+			mask |= MASK_WRITE;
 
 		el->activeds[num].fd = i;
 		el->activeds[num++].mask = mask;

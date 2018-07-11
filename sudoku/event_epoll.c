@@ -1,7 +1,5 @@
 #include <sys/epoll.h>
 
-#define NUM 1000
-
 typedef struct epoll_state {
 	int efd;
 	struct epoll_event *ee;
@@ -11,7 +9,7 @@ typedef struct epoll_state {
 static int apiCreate(struct eventLoop *el)
 {
 	epoll_state *es = (epoll_state *)malloc(sizeof(struct epoll_state));
-	struct epoll_event *ee = (struct epoll_event *)malloc(sizeof(struct epoll_event) * NUM);
+	struct epoll_event *ee = (struct epoll_event *)malloc(sizeof(struct epoll_event) * el->setSize);
 
 	if (NULL == es || NULL == ee)
 	{
@@ -32,6 +30,20 @@ static int apiCreate(struct eventLoop *el)
 	return 0;
 }
 
+static int apiResize(struct eventLoop *pel)
+{
+	struct epoll_event *pee = ((struct epoll_state *)pel->apiData)->ee;
+	
+	pee = (struct epoll_event *)realloc(pee, sizeof(struct epoll_event) * pel->setSize);
+	if (NULL == pee)
+	{
+		perror("realloc");
+		exit(EXIT_FAILURE);
+	}
+	((struct epoll_state *)pel->apiData)->ee = pee;
+
+	return 0;
+}
 
 static void apiDel(struct eventLoop *el)
 {
@@ -44,13 +56,13 @@ static void apiDel(struct eventLoop *el)
 static int apiAddEvent(struct eventLoop *el, int fd, int mask)
 {
 	epoll_state *es = el->apiData;
-	struct epoll_event ev;
+	struct epoll_event ev = {0};
 
 	// 不用边沿触发 EPOLLET TODO
-	if (mask & EVENT_READ)
+	if (mask & MASK_READ)
 		ev.events |= EPOLLIN;
 
-	if (mask & EVENT_WRITE)
+	if (mask & MASK_WRITE)
 		ev.events |= EPOLLOUT;
 
 	ev.data.fd = fd;
@@ -83,7 +95,8 @@ static int apiPoll(struct eventLoop *el)
 	int i = 0, ret = 0, num = 0, mask = 0;
 	epoll_state *es = el->apiData;
 	
-	ret = epoll_wait(es->efd, es->ee, NUM, -1);
+	ret = epoll_wait(es->efd, es->ee, el->maxFd, -1);
+	// printf("ret: %d\n", ret);
 	if (-1 == ret)
 	{
 		perror("epoll_wait");
@@ -95,9 +108,9 @@ static int apiPoll(struct eventLoop *el)
 		mask = 0;
 
 		if (es->ee[i].events & EPOLLIN)
-			mask |= EVENT_READ;
+			mask |= MASK_READ;
 		if (es->ee[i].events & EPOLLOUT)
-			mask |= EVENT_WRITE;
+			mask |= MASK_WRITE;
 
 		el->activeds[num].fd = es->ee[i].data.fd;
 		el->activeds[num++].mask = mask;

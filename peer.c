@@ -33,19 +33,17 @@ err:
 		free(p->buf);
 		free(p);
 	}
+	
+	return NULL;
 }
 
 
 void reallocPeer(peer *p, int length)
 {
 	if (0 == length)
-	{
 		p->length *= 2;
-	}
 	else
-	{
 		p->length = length;
-	}
 
 	p->buf = realloc(p->buf, p->length);
 	if (NULL == p->buf)
@@ -82,8 +80,12 @@ int readFromPeer(int sock, peer* p)
 		ret = read(sock, (char*)&p->size + p->offset, sizeof(int) - p->offset);
 		if (ret < 0)
 		{
-			perror("read");
+			// printf("read: %u\n", pthread_self());
 			exit(EXIT_FAILURE);
+		}
+		else if (ret == 0)
+		{
+			return 0;
 		}
 		
 		p->offset += ret;
@@ -97,16 +99,18 @@ int readFromPeer(int sock, peer* p)
 	ret = read(sock, p->buf + p->offset - sizeof(int), p->size - p->offset);
 	if (-1 == ret)
 	{
-		perror("read");
+		// printf("read: %u\n", pthread_self());
 		exit(EXIT_FAILURE);
+	}
+	else if (ret == 0)
+	{
+		return 0;
 	}
 	
 	p->offset += ret;
 
 	if (p->offset == p->size)
-	{
 		return p->offset;
-	}
 	else
 		return -1;
 }
@@ -127,7 +131,7 @@ int writeToPeer(int sock, peer *p)
 
 		p->offset += ret;
 		if (p->offset < sizeof(int))
-			return 1;
+			return -1;
 	}
 
 	ret = write(sock, p->buf + p->offset - sizeof(int), p->size - p->offset);
@@ -142,7 +146,7 @@ int writeToPeer(int sock, peer *p)
 	if (p->offset == p->size)
 		return p->offset;
 	else
-		return 1;
+		return -1;
 }
 
 
